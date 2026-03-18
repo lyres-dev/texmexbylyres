@@ -374,6 +374,11 @@ textarea::placeholder { color:var(--muted); }
 }
 .file-lbl { color:var(--cyan);cursor:pointer;font-size:11px; }
 </style>
+<script>
+// ТеорМех: URL прокси задаётся при деплое
+// Замени на свой Railway URL после деплоя
+window.THEORMECH_PROXY = 'RAILWAY_URL_PLACEHOLDER/proxy/anthropic';
+</script>
 </head>
 <body>
 
@@ -849,7 +854,9 @@ async function send(){
     if(txt)  content.push({type:'text',text:txt});
     if(!txt&&img) content.push({type:'text',text:'Реши задачу на этом фото. Если на фото есть рисунок к задаче — учти его геометрию при построении расчётной схемы на Canvas.'});
 
-    const resp=await fetch('https://api.anthropic.com/v1/messages',{
+    // Use proxy URL injected at build time, fallback to direct
+    const PROXY_URL = window.THEORMECH_PROXY || 'https://api.anthropic.com/v1/messages';
+    const resp=await fetch(PROXY_URL,{
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
