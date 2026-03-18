@@ -1,0 +1,910 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>ТеорМех · Бот</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Tektur:wght@400;500;700;900&family=IBM+Plex+Mono:wght@300;400;500&display=swap');
+
+:root {
+  --bg: #0d1117;
+  --panel: #161b22;
+  --panel2: #1c2333;
+  --line: #21262d;
+  --cyan: #58a6ff;
+  --orange: #f78166;
+  --green: #3fb950;
+  --purple: #bc8cff;
+  --yellow: #e3b341;
+  --text: #c9d1d9;
+  --muted: #484f58;
+  --white: #f0f6fc;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color: transparent; }
+
+body {
+  font-family: 'IBM Plex Mono', monospace;
+  background: var(--bg);
+  color: var(--text);
+  height: 100vh;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+@media (max-width: 600px) {
+  .sidebar { display: none !important; }
+  .chat { padding: 14px !important; }
+  .bubble { max-width: 96% !important; font-size: 12px !important; }
+  .input-area { padding: 10px 12px !important; }
+  .hdr { padding: 8px 14px !important; }
+  .hdr-logo { font-size: 14px !important; }
+  .feat-grid { grid-template-columns: 1fr !important; }
+  .welcome h1 { font-size: 20px !important; }
+  .welcome { padding: 10px !important; }
+  .chips { gap: 4px !important; }
+  .chip { font-size: 9px !important; padding: 3px 8px !important; }
+  .math { font-size: 11px !important; }
+  .step { font-size: 11px !important; }
+}
+
+.hdr {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 20px;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel);
+  flex-shrink: 0;
+}
+.hdr-logo {
+  font-family: 'Tektur', sans-serif;
+  font-size: 17px;
+  font-weight: 900;
+  letter-spacing: .04em;
+  color: var(--white);
+}
+.hdr-logo em { color: var(--cyan); font-style: normal; }
+.hdr-sep { flex: 1; }
+.hdr-badge {
+  font-size: 10px;
+  padding: 3px 10px;
+  border-radius: 12px;
+  border: 1px solid var(--green);
+  color: var(--green);
+  letter-spacing: .08em;
+}
+.hdr-badge::before { content:'● '; animation: blink 2s infinite; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+.body { display:flex; flex:1; min-height:0; }
+
+/* SIDEBAR */
+.sidebar {
+  width: 268px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  background: var(--panel);
+  overflow: hidden;
+}
+.sb-block { border-bottom:1px solid var(--line); padding:14px 16px; }
+.sb-title {
+  font-size:9px; letter-spacing:.18em; text-transform:uppercase;
+  color:var(--muted); margin-bottom:10px;
+}
+
+.dropzone {
+  border:1px dashed var(--line); border-radius:8px;
+  padding:16px 10px; text-align:center; cursor:pointer;
+  transition:.2s; position:relative;
+}
+.dropzone input { position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%; }
+.dropzone:hover,.dropzone.over { border-color:var(--cyan); background:rgba(88,166,255,.05); }
+.dz-icon { font-size:22px; margin-bottom:5px; }
+.dz-text { font-size:10px; color:var(--muted); line-height:1.6; }
+.dz-text b { color:var(--cyan); display:block; }
+
+#sidebar-preview { display:none; margin-top:10px; position:relative; }
+#sidebar-preview img { width:100%;border-radius:6px;border:1px solid var(--line);max-height:130px;object-fit:cover; }
+.rm-img {
+  position:absolute;top:4px;right:4px;
+  width:18px;height:18px;border-radius:50%;
+  background:rgba(0,0,0,.8);border:none;color:#fff;
+  font-size:10px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+}
+
+.examples-scroll {
+  flex:1; overflow-y:auto; padding:14px 16px;
+}
+.examples-scroll::-webkit-scrollbar { width:3px; }
+.examples-scroll::-webkit-scrollbar-thumb { background:var(--line); }
+
+.ex-item {
+  display:flex;align-items:center;gap:8px;
+  padding:8px 10px; border-radius:6px;
+  border:1px solid var(--line); margin-bottom:6px;
+  cursor:pointer; font-size:11px; transition:.15s;
+  background:var(--panel2);
+}
+.ex-item:hover { border-color:var(--cyan); color:var(--cyan); }
+.ex-tag {
+  font-size:9px; padding:2px 6px; border-radius:10px;
+  background:rgba(188,140,255,.15); color:var(--purple);
+  margin-left:auto; flex-shrink:0;
+}
+.ex-tag.kin { background:rgba(227,179,65,.15); color:var(--yellow); }
+.ex-tag.dyn { background:rgba(247,129,102,.15); color:var(--orange); }
+.ex-tag.usr { background:rgba(63,185,80,.15); color:var(--green); }
+
+.add-ex-btn {
+  width:100%; padding:7px; font-size:10px;
+  background:none; border:1px dashed var(--line);
+  border-radius:6px; color:var(--muted);
+  cursor:pointer; font-family:inherit; transition:.2s;
+}
+.add-ex-btn:hover { border-color:var(--purple); color:var(--purple); }
+
+.setting { display:flex;align-items:center;justify-content:space-between;margin-bottom:7px; }
+.s-label { font-size:10px; color:var(--muted); }
+select {
+  background:var(--panel2); border:1px solid var(--line);
+  border-radius:4px; color:var(--text); font-family:inherit;
+  font-size:10px; padding:3px 6px; cursor:pointer;
+}
+select:focus { outline:none; border-color:var(--cyan); }
+
+/* CHAT */
+.chat-wrap { flex:1; display:flex; flex-direction:column; min-width:0; overflow:hidden; }
+.chat {
+  flex:1; overflow-y:auto; padding:24px 28px;
+  display:flex; flex-direction:column; gap:18px;
+}
+.chat::-webkit-scrollbar { width:4px; }
+.chat::-webkit-scrollbar-thumb { background:var(--line); border-radius:2px; }
+
+.welcome {
+  margin:auto; text-align:center; max-width:520px; padding:20px;
+}
+.welcome h1 {
+  font-family:'Tektur',sans-serif; font-size:26px; font-weight:900;
+  color:var(--white); letter-spacing:.03em; margin-bottom:10px;
+}
+.welcome h1 span { color:var(--cyan); }
+.welcome p { font-size:12px; color:var(--muted); line-height:1.8; margin-bottom:20px; }
+.feat-grid { display:grid;grid-template-columns:1fr 1fr;gap:10px;text-align:left; }
+.feat {
+  background:var(--panel); border:1px solid var(--line);
+  border-radius:8px; padding:12px; font-size:11px;
+}
+.feat .fi { font-size:16px; margin-bottom:5px; }
+.feat strong { display:block; color:var(--cyan); margin-bottom:3px; font-size:11px; }
+.feat span { color:var(--muted); }
+
+.msg { display:flex; gap:10px; animation:popIn .25s ease; }
+@keyframes popIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
+.msg.user { flex-direction:row-reverse; }
+.avatar {
+  width:30px;height:30px;border-radius:7px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:13px;flex-shrink:0;align-self:flex-start;margin-top:2px;
+}
+.msg.bot .avatar { background:linear-gradient(135deg,#1f6feb,#388bfd); }
+.msg.user .avatar { background:linear-gradient(135deg,var(--orange),#ff4757); }
+
+.bubble {
+  max-width:82%;
+  background:var(--panel); border:1px solid var(--line);
+  border-radius:10px; padding:13px 16px;
+  font-size:12.5px; line-height:1.75;
+}
+.msg.user .bubble {
+  background:rgba(88,166,255,.07); border-color:rgba(88,166,255,.2);
+}
+.bubble h3 {
+  font-family:'Tektur',sans-serif; font-size:11px;
+  letter-spacing:.1em; text-transform:uppercase;
+  color:var(--cyan); margin:12px 0 8px;
+  border-bottom:1px solid var(--line); padding-bottom:4px;
+}
+.bubble h3:first-child { margin-top:0; }
+.bubble p { margin-bottom:6px; }
+.bubble p:last-child { margin-bottom:0; }
+
+.math {
+  background:rgba(0,0,0,.4); border-left:2px solid var(--cyan);
+  border-radius:4px; padding:7px 12px; margin:5px 0;
+  color:var(--cyan); font-size:12px;
+}
+.step {
+  display:flex; gap:9px; background:var(--panel2);
+  border-radius:6px; padding:9px 11px; margin:5px 0;
+  font-size:12px; align-items:flex-start;
+}
+.sn {
+  width:20px;height:20px;border-radius:50%;
+  background:var(--purple); font-size:9px; font-weight:700;
+  display:flex;align-items:center;justify-content:center;
+  flex-shrink:0; margin-top:1px;
+}
+.answer {
+  background:linear-gradient(135deg,rgba(63,185,80,.07),rgba(88,166,255,.07));
+  border:1px solid rgba(63,185,80,.35); border-radius:8px;
+  padding:10px 14px; margin-top:10px;
+}
+.ans-lbl { font-size:9px;letter-spacing:.15em;text-transform:uppercase;color:var(--green);margin-bottom:4px; }
+.ans-val { font-size:14px;font-weight:700;color:var(--green); }
+
+.canvas-wrap {
+  background:#fafaf8; border-radius:8px;
+  margin:10px 0; overflow:hidden; border:1px solid var(--line);
+}
+.canvas-wrap canvas { display:block; max-width:100%; }
+.canvas-footer {
+  background:var(--panel); border-top:1px solid var(--line);
+  padding:5px 10px; display:flex; align-items:center;
+  justify-content:space-between; font-size:10px; color:var(--muted);
+}
+.canvas-footer button {
+  background:none;border:none;color:var(--cyan);
+  font-size:10px;cursor:pointer;font-family:inherit;
+}
+
+.msg-img-preview {
+  max-width:180px; border-radius:7px;
+  border:1px solid var(--line); margin-bottom:7px; display:block;
+}
+
+.typing { display:flex;gap:10px;align-items:center; }
+.dots {
+  background:var(--panel);border:1px solid var(--line);
+  border-radius:10px;padding:12px 16px;
+  display:flex;gap:5px;align-items:center;
+}
+.dots span {
+  width:6px;height:6px;border-radius:50%;background:var(--cyan);opacity:.3;
+  animation:dt 1.2s infinite;
+}
+.dots span:nth-child(2){animation-delay:.2s}
+.dots span:nth-child(3){animation-delay:.4s}
+@keyframes dt{0%,100%{opacity:.3;transform:scale(1)}50%{opacity:1;transform:scale(1.2)}}
+
+/* INPUT */
+.input-area {
+  border-top:1px solid var(--line);
+  background:var(--panel); padding:14px 20px; flex-shrink:0;
+}
+.chips { display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap; }
+.chip {
+  padding:3px 10px; border-radius:20px; font-size:10px;
+  border:1px solid var(--line); cursor:pointer;
+  transition:.15s; background:var(--panel2);
+}
+.chip.on { border-color:var(--cyan);color:var(--cyan);background:rgba(88,166,255,.08); }
+.chip:hover:not(.on) { border-color:var(--muted); }
+
+.irow { display:flex;gap:10px;align-items:flex-end; }
+.ibox {
+  flex:1; background:var(--panel2);
+  border:1px solid var(--line); border-radius:10px;
+  transition:.2s; overflow:hidden;
+}
+.ibox:focus-within { border-color:var(--cyan); }
+textarea {
+  width:100%; padding:10px 14px;
+  background:transparent; border:none; outline:none;
+  color:var(--text); font-family:inherit; font-size:12.5px;
+  resize:none; min-height:40px; max-height:110px; line-height:1.5;
+}
+textarea::placeholder { color:var(--muted); }
+.ifoot {
+  display:flex;align-items:center;gap:7px;
+  padding:5px 10px; border-top:1px solid var(--line);
+}
+.att-btn {
+  background:none;border:none;color:var(--muted);cursor:pointer;
+  font-size:13px;padding:3px 5px;border-radius:4px;
+  position:relative; transition:color .2s;
+}
+.att-btn input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;}
+.att-btn:hover { color:var(--cyan); }
+.att-badge {
+  display:none; font-size:9px;
+  background:rgba(88,166,255,.1);
+  border:1px solid rgba(88,166,255,.3);
+  border-radius:10px; padding:2px 7px; color:var(--cyan);
+}
+.hint { font-size:9px;color:var(--muted);margin-left:auto; }
+
+.send {
+  width:42px;height:42px;
+  background:linear-gradient(135deg,var(--cyan),var(--purple));
+  border:none;border-radius:9px;color:#fff;font-size:15px;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;
+  transition:.2s;flex-shrink:0;
+}
+.send:hover { transform:scale(1.06); }
+.send:disabled { opacity:.35;cursor:not-allowed;transform:none; }
+
+/* Modal */
+.overlay {
+  display:none; position:fixed; inset:0;
+  background:rgba(0,0,0,.75); z-index:300;
+  align-items:center; justify-content:center;
+}
+.overlay.open { display:flex; }
+.modal {
+  background:var(--panel); border:1px solid var(--line);
+  border-radius:14px; padding:22px 24px; width:460px; max-width:92vw;
+}
+.modal h3 { font-family:'Tektur',sans-serif;font-size:14px;color:var(--cyan);margin-bottom:14px; }
+.modal p { font-size:11px;color:var(--muted);margin-bottom:12px;line-height:1.6; }
+.modal textarea {
+  background:var(--bg); border:1px solid var(--line);
+  border-radius:8px; width:100%; height:110px;
+  padding:9px 12px; font-size:11px; margin-bottom:10px;
+  color:var(--text); font-family:inherit; resize:none;
+}
+.modal input[type=text] {
+  width:100%; background:var(--bg);
+  border:1px solid var(--line); border-radius:7px;
+  padding:8px 12px; color:var(--text);
+  font-family:inherit; font-size:11px; margin-bottom:12px;
+}
+.modal-acts { display:flex;gap:8px;justify-content:flex-end; }
+.btn-ghost {
+  padding:7px 14px; background:none;
+  border:1px solid var(--line); border-radius:7px;
+  color:var(--muted); cursor:pointer; font-family:inherit; font-size:11px;
+}
+.btn-prim {
+  padding:7px 14px;
+  background:linear-gradient(135deg,var(--cyan),var(--purple));
+  border:none; border-radius:7px; color:#fff;
+  cursor:pointer; font-family:inherit; font-size:11px;
+}
+.file-lbl { color:var(--cyan);cursor:pointer;font-size:11px; }
+</style>
+</head>
+<body>
+
+<header class="hdr">
+  <div style="font-size:20px">⚙️</div>
+  <div class="hdr-logo">Теор<em>Мех</em> Бот</div>
+  <div class="hdr-sep"></div>
+  <div class="hdr-badge">ONLINE</div>
+</header>
+
+<div class="body">
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sb-block">
+      <div class="sb-title">📎 Фото задачи</div>
+      <div class="dropzone" id="dz">
+        <input type="file" id="sb-file" accept="image/*" />
+        <div class="dz-icon">📷</div>
+        <div class="dz-text"><b>Загрузить фото</b>PNG · JPG · HEIC</div>
+      </div>
+      <div id="sidebar-preview">
+        <img id="sb-img" src="" />
+        <button class="rm-img" onclick="rmSbImg()">✕</button>
+      </div>
+    </div>
+
+    <div class="sb-block" style="flex:1;overflow:hidden;display:flex;flex-direction:column;">
+      <div class="sb-title">📚 Банк примеров</div>
+      <div class="examples-scroll" id="ex-list"></div>
+      <button class="add-ex-btn" onclick="openModal()">+ Добавить свой пример</button>
+    </div>
+
+    <div class="sb-block">
+      <div class="sb-title">⚙️ Параметры</div>
+      <div class="setting">
+        <span class="s-label">Раздел</span>
+        <select id="sel-section">
+          <option value="auto">Авто</option>
+          <option value="statics">Статика</option>
+          <option value="kinematics">Кинематика</option>
+          <option value="dynamics">Динамика</option>
+        </select>
+      </div>
+      <div class="setting">
+        <span class="s-label">Подробность</span>
+        <select id="sel-level">
+          <option value="student">Студент</option>
+          <option value="detail">Подробно</option>
+          <option value="brief">Кратко</option>
+        </select>
+      </div>
+    </div>
+  </aside>
+
+  <!-- CHAT -->
+  <div class="chat-wrap">
+    <div class="chat" id="chat">
+      <div class="welcome" id="welcome">
+        <h1>Теор<span>Мех</span> Бот</h1>
+        <p>Загрузи фото задачи или введи условие вручную.<br>
+        Решу пошагово и нарисую схему на Canvas.</p>
+        <div class="feat-grid">
+          <div class="feat"><div class="fi">📷</div><strong>Читает фото</strong><span>Распознаёт условие и рисунок из задачника</span></div>
+          <div class="feat"><div class="fi">🎨</div><strong>Canvas-схемы</strong><span>Рисует силы, реакции, геометрию свободным стилем</span></div>
+          <div class="feat"><div class="fi">🧮</div><strong>Все разделы</strong><span>Статика · Кинематика · Динамика</span></div>
+          <div class="feat"><div class="fi">📚</div><strong>Учится на примерах</strong><span>Загрузи свои решения для точности</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="input-area">
+      <div class="chips">
+        <div class="chip on" onclick="setMode(this,'solve')">🧮 Решить</div>
+        <div class="chip" onclick="setMode(this,'check')">✅ Проверить</div>
+        <div class="chip" onclick="setMode(this,'diagram')">🎨 Только схема</div>
+        <div class="chip" onclick="setMode(this,'explain')">💬 Объяснить</div>
+      </div>
+      <div class="irow">
+        <div class="ibox">
+          <textarea id="ta" rows="1"
+            placeholder="Введите условие задачи..."
+            oninput="resize(this)"
+            onkeydown="onKey(event)"></textarea>
+          <div class="ifoot">
+            <button class="att-btn">
+              📎<input type="file" id="inline-file" accept="image/*" onchange="onInlineImg(this)"/>
+            </button>
+            <span class="att-badge" id="att-badge">📷 фото</span>
+            <span class="hint">Enter — отправить · Shift+Enter — перенос</span>
+          </div>
+        </div>
+        <button class="send" id="send-btn" onclick="send()">➤</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal -->
+<div class="overlay" id="modal">
+  <div class="modal">
+    <h3>📚 Добавить пример решения</h3>
+    <p>Вставь эталонное решение задачи. Бот будет использовать его как образец стиля и подхода.</p>
+    <textarea id="ex-text" placeholder="Задача: Балка AB длиной 4м...&#10;Решение:&#10;1. Составляем уравнения равновесия..."></textarea>
+    <div style="margin-bottom:10px;font-size:11px;color:var(--muted);">
+      Или загрузи фото:
+      <label class="file-lbl">
+        📷 выбрать
+        <input type="file" id="ex-img-file" accept="image/*" style="display:none" onchange="onExImg(this)"/>
+      </label>
+      <span id="ex-img-name" style="color:var(--green);margin-left:4px;font-size:10px;"></span>
+    </div>
+    <input type="text" id="ex-name" placeholder="Название (напр. 'Равновесие рамы')" />
+    <div class="modal-acts">
+      <button class="btn-ghost" onclick="closeModal()">Отмена</button>
+      <button class="btn-prim" onclick="saveExample()">Сохранить</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── TELEGRAM MINI APP INIT ──
+if (window.Telegram && window.Telegram.WebApp) {
+  const tg = window.Telegram.WebApp;
+  tg.ready();
+  tg.expand();
+  tg.enableClosingConfirmation();
+  // Apply Telegram theme colors if available
+  if (tg.colorScheme === 'light') {
+    document.documentElement.style.setProperty('--bg', '#ffffff');
+    document.documentElement.style.setProperty('--panel', '#f0f0f0');
+    document.documentElement.style.setProperty('--panel2', '#e8e8e8');
+    document.documentElement.style.setProperty('--text', '#1a1a1a');
+    document.documentElement.style.setProperty('--muted', '#888');
+    document.documentElement.style.setProperty('--line', '#ddd');
+  }
+}
+
+// ── STATE ──
+let mode = 'solve';
+let sbImg = null;
+let inlineImg = null;
+let exImgB64 = null;
+
+const BUILTIN = [
+  { id:'s1', name:'Равновесие балки', tag:'ст',
+    content:`Задача: Горизонтальная балка AB длиной 6м. Шарнир в A, катковая опора в B. Сила F=12кН вниз в точке C (2м от A). Момент M=18кН·м в D (4м от A).
+Решение:
+1. Опора A (шарнир): RAx, RAy. Опора B (каток): RB вертикальная.
+2. ΣFx=0 → RAx=0.
+3. ΣMB=0: RAy·6 - F·(6-2) - M = 0 → RAy=(12·4+18)/6=11 кН.
+4. ΣFy=0: RAy+RB=F → RB=1 кН.
+Ответ: RAy=11кН, RB=1кН.` },
+  { id:'s2', name:'Ферма — метод узлов', tag:'ст',
+    content:`Задача: Плоская ферма. Узлы A,B,C. Нагрузка P=20кН в C вниз. A-шарнир, B-каток.
+Решение:
+1. ΣMA=0 → RB·l = P·l/2 → RB=10кН.
+2. RAy=P-RB=10кН, RAx=0.
+3. Узел B, стержень BC под углом 60°: N_BC·sin60°=10 → N_BC=11.55кН (сжатие).
+Ответ: N_BC≈11.55кН сжатие.` },
+  { id:'k1', name:'МЦС — скорость ползуна', tag:'ки',
+    content:`Задача: Кривошип OA=0.3м, ω=5рад/с. Шатун AB=0.5м. Найти скорость ползуна B.
+Решение:
+1. vA=ω·OA=5·0.3=1.5м/с ⊥ OA.
+2. МЦС ползуна — точка пересечения ⊥ vB и ⊥ vA.
+3. vB = vA·(MB/MA), где MA,MB — расстояния от МЦС.
+Ответ: зависит от угла кривошипа.` },
+  { id:'k2', name:'Угловые параметры', tag:'ки',
+    content:`Задача: φ(t)=2t³-3t²+t. Найти ω и ε при t=2с.
+Решение:
+1. ω=dφ/dt=6t²-6t+1. При t=2: ω=24-12+1=13 рад/с.
+2. ε=dω/dt=12t-6. При t=2: ε=24-6=18 рад/с².
+Ответ: ω=13рад/с, ε=18рад/с².` },
+  { id:'d1', name:'Наклонная плоскость', tag:'ди',
+    content:`Задача: Тело m=10кг, α=30°, μ=0.25. Найти ускорение скольжения.
+Решение:
+1. N=mg·cosα=10·9.81·0.866=84.97Н.
+2. Fтр=μN=0.25·84.97=21.24Н.
+3. Fдв=mg·sinα=49.05Н.
+4. a=(Fдв-Fтр)/m=(49.05-21.24)/10=2.78м/с².
+Ответ: a≈2.78м/с².` },
+  { id:'d2', name:'Теорема кин. энергии', tag:'ди',
+    content:`Задача: m=5кг, F=30Н, s=4м, v0=2м/с. Найти v.
+Решение:
+1. AF=F·s=120Дж.
+2. ΔT=ΣA: ½mv²-½mv0²=AF.
+3. 2.5v²=½·5·4+120=130 → v²=52 → v≈7.21м/с.
+Ответ: v≈7.21м/с.` }
+];
+
+let userExamples = [];
+
+// ── RENDER SIDEBAR EXAMPLES ──
+function renderEx() {
+  const list = document.getElementById('ex-list');
+  list.innerHTML = '';
+  [...BUILTIN, ...userExamples].forEach(ex => {
+    const tagCls = ex.tag==='ки'?'kin': ex.tag==='ди'?'dyn': ex.tag==='Моё'?'usr':'';
+    const tagLabel = ex.tag==='ст'?'Статика': ex.tag==='ки'?'Кинем.': ex.tag==='ди'?'Динам.': ex.tag||'Своё';
+    const div = document.createElement('div');
+    div.className='ex-item';
+    div.innerHTML=`<span>${ex.name}</span><span class="ex-tag ${tagCls}">${tagLabel}</span>`;
+    div.onclick=()=>{
+      document.getElementById('ta').value = ex.content.split('\n')[0].replace('Задача: ','');
+      resize(document.getElementById('ta'));
+    };
+    list.appendChild(div);
+  });
+}
+renderEx();
+
+// ── IMAGES ──
+document.getElementById('sb-file').addEventListener('change', function(e){
+  loadImg(e.target.files[0], b64=>{
+    sbImg=b64;
+    document.getElementById('sb-img').src='data:image/jpeg;base64,'+b64;
+    document.getElementById('sidebar-preview').style.display='block';
+  });
+});
+
+const dz=document.getElementById('dz');
+dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('over');});
+dz.addEventListener('dragleave',()=>dz.classList.remove('over'));
+dz.addEventListener('drop',e=>{
+  e.preventDefault();dz.classList.remove('over');
+  const f=e.dataTransfer.files[0];
+  if(f&&f.type.startsWith('image/')) loadImg(f,b64=>{sbImg=b64;document.getElementById('sb-img').src='data:image/jpeg;base64,'+b64;document.getElementById('sidebar-preview').style.display='block';});
+});
+
+function rmSbImg(){
+  sbImg=null;
+  document.getElementById('sidebar-preview').style.display='none';
+  document.getElementById('sb-file').value='';
+}
+
+function onInlineImg(input){
+  const f=input.files[0]; if(!f) return;
+  loadImg(f,b64=>{inlineImg=b64;document.getElementById('att-badge').style.display='inline';});
+}
+
+function loadImg(file,cb){
+  const r=new FileReader();
+  r.onload=e=>cb(e.target.result.split(',')[1]);
+  r.readAsDataURL(file);
+}
+
+// ── UI ──
+function setMode(el,m){
+  document.querySelectorAll('.chip').forEach(c=>c.classList.remove('on'));
+  el.classList.add('on'); mode=m;
+  const ph={solve:'Введите условие задачи...',check:'Вставьте своё решение...',diagram:'Опишите что нарисовать...',explain:'Что хотите понять?'};
+  document.getElementById('ta').placeholder=ph[m];
+}
+function resize(el){el.style.height='auto';el.style.height=Math.min(el.scrollHeight,110)+'px';}
+function onKey(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send();}}
+
+// ── CHAT ──
+function addMsg(role,html,imgB64){
+  document.getElementById('welcome').style.display='none';
+  const chat=document.getElementById('chat');
+  const div=document.createElement('div');
+  div.className='msg '+role;
+  const avHtml=`<div class="avatar">${role==='user'?'👤':'⚙️'}</div>`;
+  const imgHtml=imgB64?`<img class="msg-img-preview" src="data:image/jpeg;base64,${imgB64}"/>`:'';
+  div.innerHTML=`${avHtml}<div>${imgHtml}<div class="bubble">${html}</div></div>`;
+  chat.appendChild(div);
+  chat.scrollTop=chat.scrollHeight;
+  return div;
+}
+
+let loadEl=null;
+function showLoad(){
+  const c=document.getElementById('chat');
+  loadEl=document.createElement('div');loadEl.className='typing';
+  loadEl.innerHTML='<div class="avatar" style="background:linear-gradient(135deg,#1f6feb,#388bfd)">⚙️</div><div class="dots"><span></span><span></span><span></span></div>';
+  c.appendChild(loadEl);c.scrollTop=c.scrollHeight;
+}
+function hideLoad(){if(loadEl){loadEl.remove();loadEl=null;}}
+
+// ── CANVAS ENGINE ──
+function execCanvas(code,canvas){
+  try {
+    const ctx=canvas.getContext('2d');
+    const fn=new Function('ctx','W','H',code);
+    fn(ctx,canvas.width,canvas.height);
+  } catch(e){
+    const ctx=canvas.getContext('2d');
+    ctx.fillStyle='#c00';ctx.font='12px monospace';
+    ctx.fillText('Canvas ошибка: '+e.message,10,20);
+  }
+}
+
+function makeDiagram(code, label){
+  const wrap=document.createElement('div');wrap.className='canvas-wrap';
+  const canvas=document.createElement('canvas');
+  canvas.width=500;canvas.height=340;
+  const footer=document.createElement('div');footer.className='canvas-footer';
+  footer.innerHTML=`<span>🎨 ${label||'расчётная схема'}</span><button onclick="dlCanvas(this)">⬇ PNG</button>`;
+  wrap.appendChild(canvas);wrap.appendChild(footer);
+  requestAnimationFrame(()=>execCanvas(code,canvas));
+  return wrap;
+}
+
+function dlCanvas(btn){
+  const canvas=btn.closest('.canvas-wrap').querySelector('canvas');
+  const a=document.createElement('a');
+  a.href=canvas.toDataURL('image/png');a.download='diagram.png';a.click();
+}
+
+// ── PARSE ──
+function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+function parseResp(text,bubble){
+  const get=tag=>{const m=text.match(new RegExp(`<${tag}>[\\s\\S]*?</${tag}>`),'i');return m?m[0].replace(new RegExp(`</?${tag}>`,'gi'),'').trim():'';};
+
+  const section=get('SECTION');
+  const given=get('GIVEN');
+  const canvasCode=get('CANVAS');
+  const solution=get('SOLUTION');
+  const answer=get('ANSWER');
+
+  if(!section&&!solution&&!canvasCode){
+    bubble.innerHTML=`<p>${esc(text).replace(/\n/g,'<br>')}</p>`;
+    return;
+  }
+
+  let html='';
+  if(section) html+=`<h3>📌 ${esc(section)}</h3>`;
+  if(given)   html+=`<h3>📋 Дано</h3><p>${esc(given).replace(/\n/g,'<br>')}</p>`;
+
+  // Canvas placeholder
+  if(canvasCode) html+=`<h3>🎨 Расчётная схема</h3><div id="canvas-slot"></div>`;
+
+  if(solution){
+    html+=`<h3>🧮 Решение</h3>`;
+    const lines=solution.split('\n');
+    let sn=0;
+    lines.forEach(line=>{
+      line=line.trim();if(!line)return;
+      if(/^\d+\./.test(line)||/^\[ШАГ/.test(line)){
+        sn++;
+        const txt=line.replace(/^\d+\.\s*/,'').replace(/^\[ШАГ\s*\d+\]\s*/,'');
+        html+=`<div class="step"><div class="sn">${sn}</div><div>${hasMath(txt)?`<div class="math">${esc(txt)}</div>`:`<p>${esc(txt)}</p>`}</div></div>`;
+      } else if(hasMath(line)){
+        html+=`<div class="math">${esc(line)}</div>`;
+      } else {
+        html+=`<p>${esc(line)}</p>`;
+      }
+    });
+  }
+  if(answer){
+    html+=`<div class="answer"><div class="ans-lbl">✅ Ответ</div><div class="ans-val">${esc(answer)}</div></div>`;
+  }
+
+  bubble.innerHTML=html;
+
+  if(canvasCode){
+    const slot=bubble.querySelector('#canvas-slot');
+    if(slot) slot.replaceWith(makeDiagram(canvasCode, section));
+  }
+}
+
+function hasMath(s){return s.includes('=')||(s.includes('·')&&s.length>5)||(s.includes('/')||s.includes('·'));}
+
+// ── SYSTEM PROMPT ──
+function buildPrompt(){
+  const section=document.getElementById('sel-section').value;
+  const level=document.getElementById('sel-level').value;
+
+  const levelHint=level==='detail'?'Объясняй каждое действие максимально подробно.':level==='brief'?'Кратко, только ключевые шаги и формулы.':'Уровень студента технического вуза, РФ.';
+  const modeHint=mode==='check'?'РЕЖИМ ПРОВЕРКИ: найди ошибки в решении студента, объясни правильный подход.':mode==='diagram'?'РЕЖИМ СХЕМЫ: только нарисуй расчётную схему в CANVAS, решения не надо.':mode==='explain'?'РЕЖИМ ОБЪЯСНЕНИЯ: объясни теорию, дай примеры.':'Реши задачу полностью пошагово.';
+
+  const exCtx=userExamples.length>0
+    ?'\n\nПРИМЕРЫ ПОЛЬЗОВАТЕЛЯ (стиль и подход):\n'+userExamples.map((e,i)=>`[${i+1}]: ${e.content}`).join('\n\n')
+    :'';
+
+  const builtinCtx=BUILTIN.map(e=>e.content).join('\n---\n');
+
+  return `Ты — преподаватель теоретической механики (теормех). Отвечай только на русском языке.
+${levelHint}
+${modeHint}
+${section!=='auto'?'Раздел: '+section+'.':''}
+
+═══ ФОРМАТ ОТВЕТА ═══
+Обязательно используй эти теги:
+
+<SECTION>Раздел + тип задачи (напр. "Статика · Равновесие балки")</SECTION>
+
+<GIVEN>
+Дано: (все числовые данные из условия)
+Найти: (что требуется найти)
+</GIVEN>
+
+<CANVAS>
+// JAVASCRIPT КОД для Canvas 2D — рисует расчётную схему
+// Переменные уже доступны: ctx (CanvasRenderingContext2D), W=500, H=340
+// Используй только эти переменные, не объявляй canvas заново.
+//
+// ОБЯЗАТЕЛЬНОЕ НАЧАЛО:
+// ctx.clearRect(0,0,W,H);
+// ctx.fillStyle='#fafaf8'; ctx.fillRect(0,0,W,H);
+//
+// ВСПОМОГАТЕЛЬНАЯ ФУНКЦИЯ СТРЕЛКИ (включи в код):
+// function arr(x1,y1,x2,y2,col,lw){
+//   ctx.save();ctx.strokeStyle=col||'#222';ctx.fillStyle=col||'#222';ctx.lineWidth=lw||2;
+//   ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);
+//   var a=Math.atan2(y2-y1,x2-x1);
+//   ctx.moveTo(x2,y2);
+//   ctx.lineTo(x2-11*Math.cos(a-0.4),y2-11*Math.sin(a-0.4));
+//   ctx.lineTo(x2-11*Math.cos(a+0.4),y2-11*Math.sin(a+0.4));
+//   ctx.closePath();ctx.stroke();ctx.fill();ctx.restore();
+// }
+//
+// ЦВЕТОВЫЕ СТАНДАРТЫ:
+// Конструкция (балки, стержни): '#1a1a1a', lineWidth=2.5
+// Нагрузки (силы F, момент M): '#d32f2f' (красный)
+// Реакции опор (R): '#1565c0' (синий)
+// Скорости (v): '#2e7d32' (зелёный)
+// Ускорения (a): '#e65100' (оранжевый)
+// Размерные линии: '#78909c', setLineDash([5,5])
+//
+// ОПОРЫ:
+// Шарнир (треугольник вниз):
+//   ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x-15,y+25);ctx.lineTo(x+15,y+25);ctx.closePath();ctx.stroke();
+//   // штриховка под треугольником
+//   for(var i=-20;i<=20;i+=5){ctx.beginPath();ctx.moveTo(x+i,y+25);ctx.lineTo(x+i-5,y+33);ctx.stroke();}
+// Каток (треугольник + кружок):
+//   аналогично + ctx.beginPath();ctx.arc(x,y+30,5,0,2*Math.PI);ctx.stroke();
+// Защемление (прямоугольник со штриховкой)
+//
+// НАДПИСИ: ctx.font='bold 13px Arial'; ctx.fillStyle='#1a1a1a';
+// КУРСИВ для переменных: ctx.font='italic 13px Arial';
+//
+// Нарисуй ДЕТАЛЬНУЮ схему с подписями сил, реакций и размеров.
+// Центрируй схему на холсте с отступами ~40px.
+</CANVAS>
+
+<SOLUTION>
+[ШАГ 1] Описание + формула + числа
+[ШАГ 2] ...
+</SOLUTION>
+
+<ANSWER>
+Численный ответ с единицами
+</ANSWER>
+
+═══ БАЗА ЗНАНИЙ ═══
+${builtinCtx}
+${exCtx}`;
+}
+
+// ── SEND ──
+async function send(){
+  const ta=document.getElementById('ta');
+  const txt=ta.value.trim();
+  const img=inlineImg||sbImg;
+  if(!txt&&!img) return;
+
+  document.getElementById('send-btn').disabled=true;
+
+  const userHtml=txt?`<p>${esc(txt).replace(/\n/g,'<br>')}</p>`:'<p>📷 Фото задачи</p>';
+  addMsg('user',userHtml,img);
+
+  ta.value='';ta.style.height='auto';
+  inlineImg=null;
+  document.getElementById('att-badge').style.display='none';
+  document.getElementById('inline-file').value='';
+
+  showLoad();
+
+  try {
+    const content=[];
+    if(img)  content.push({type:'image',source:{type:'base64',media_type:'image/jpeg',data:img}});
+    if(txt)  content.push({type:'text',text:txt});
+    if(!txt&&img) content.push({type:'text',text:'Реши задачу на этом фото. Если на фото есть рисунок к задаче — учти его геометрию при построении расчётной схемы на Canvas.'});
+
+    const resp=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-20250514',
+        max_tokens:4000,
+        system:buildPrompt(),
+        messages:[{role:'user',content}]
+      })
+    });
+    const data=await resp.json();
+    hideLoad();
+
+    if(data.error){
+      addMsg('bot',`<p style="color:#fc8181">Ошибка: ${esc(data.error.message)}</p>`);
+    } else {
+      const raw=data.content.map(b=>b.text||'').join('');
+      document.getElementById('welcome').style.display='none';
+      const chat=document.getElementById('chat');
+      const msgDiv=document.createElement('div');msgDiv.className='msg bot';
+      const bubble=document.createElement('div');bubble.className='bubble';
+      msgDiv.innerHTML='<div class="avatar">⚙️</div>';
+      msgDiv.appendChild(bubble);
+      chat.appendChild(msgDiv);
+      parseResp(raw,bubble);
+      chat.scrollTop=chat.scrollHeight;
+    }
+  } catch(e){
+    hideLoad();
+    addMsg('bot',`<p style="color:#fc8181">Ошибка: ${esc(e.message)}</p>`);
+  }
+
+  document.getElementById('send-btn').disabled=false;
+}
+
+// ── MODAL ──
+function openModal(){ document.getElementById('modal').classList.add('open'); }
+function closeModal(){ document.getElementById('modal').classList.remove('open'); }
+
+function onExImg(input){
+  const f=input.files[0];if(!f)return;
+  loadImg(f,b64=>{exImgB64=b64;document.getElementById('ex-img-name').textContent=f.name;});
+}
+
+function saveExample(){
+  const name=document.getElementById('ex-name').value.trim()||('Пример '+(userExamples.length+1));
+  const content=document.getElementById('ex-text').value.trim();
+  if(!content&&!exImgB64){alert('Введите текст или загрузите фото');return;}
+  userExamples.push({id:'u'+Date.now(),name,tag:'Моё',content,imgB64:exImgB64});
+  renderEx();
+  closeModal();
+  document.getElementById('ex-text').value='';
+  document.getElementById('ex-name').value='';
+  document.getElementById('ex-img-name').textContent='';
+  exImgB64=null;
+}
+</script>
+</body>
+</html>
