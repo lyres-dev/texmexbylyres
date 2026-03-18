@@ -1,9 +1,10 @@
 """
 ТеорМех Бот — Telegram Mini App + API Proxy
-Railway 24/7
+Railway 24/7 | с защитой от 409
 """
 
 import os
+import time
 import threading
 import requests
 import telebot
@@ -17,10 +18,10 @@ from telebot.types import (
 )
 
 # ── НАСТРОЙКИ ──────────────────────────────────────────────
-BOT_TOKEN    = os.environ.get("BOT_TOKEN", "")
-MINI_APP_URL = os.environ.get("MINI_APP_URL", "")
+BOT_TOKEN     = os.environ.get("BOT_TOKEN", "")
+MINI_APP_URL  = os.environ.get("MINI_APP_URL", "")
 ANTHROPIC_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
-PORT = int(os.environ.get("PORT", 8080))
+PORT          = int(os.environ.get("PORT", 8080))
 
 if not BOT_TOKEN:
     raise ValueError("BOT_TOKEN не задан!")
@@ -34,14 +35,11 @@ CORS(app, origins="*")
 
 @app.route("/proxy/anthropic", methods=["POST", "OPTIONS"])
 def proxy_anthropic():
-    """Проксирует запросы к Anthropic API — решает CORS в Telegram Mini App"""
     if request.method == "OPTIONS":
         return jsonify({}), 200
-
     api_key = ANTHROPIC_KEY or request.headers.get("X-Api-Key", "")
     if not api_key:
-        return jsonify({"error": {"message": "ANTHROPIC_API_KEY не задан на сервере"}}), 400
-
+        return jsonify({"error": {"message": "ANTHROPIC_API_KEY не задан"}}), 400
     try:
         resp = requests.post(
             "https://api.anthropic.com/v1/messages",
@@ -60,21 +58,19 @@ def proxy_anthropic():
 
 @app.route("/health")
 def health():
-    return jsonify({"status": "ok", "bot": "ТеорМех"})
+    return jsonify({"status": "ok"})
 
 
 # ── TELEGRAM BOT ───────────────────────────────────────────
-bot = telebot.TeleBot(BOT_TOKEN)
+bot = telebot.TeleBot(BOT_TOKEN, threaded=False)
 
 
 def main_kb():
     markup = InlineKeyboardMarkup()
-    markup.add(
-        InlineKeyboardButton(
-            text="⚙️ Открыть ТеорМех Бот",
-            web_app=WebAppInfo(url=MINI_APP_URL),
-        )
-    )
+    markup.add(InlineKeyboardButton(
+        text="⚙️ Открыть ТеорМех Бот",
+        web_app=WebAppInfo(url=MINI_APP_URL),
+    ))
     return markup
 
 
@@ -88,7 +84,7 @@ def cmd_start(message):
         "• 📐 Статика — равновесие, фермы, рамы\n"
         "• 🔄 Кинематика — скорости, ускорения, МЦС\n"
         "• 💥 Динамика — уравнения движения, энергия\n\n"
-        "Загрузи фото задачи или введи условие — решу пошагово и нарисую схему.\n\n"
+        "Загрузи фото задачи или введи условие.\n\n"
         "👇 Нажми кнопку:",
         parse_mode="Markdown",
         reply_markup=main_kb(),
@@ -109,8 +105,7 @@ def cmd_help(message):
         "2. Введи условие или загрузи фото задачи\n"
         "3. Выбери режим: Решить / Проверить / Схема\n"
         "4. Получи решение + Canvas-схему\n\n"
-        "/start — главное меню\n"
-        "/app — открыть приложение",
+        "/start — главное меню",
         parse_mode="Markdown",
         reply_markup=main_kb(),
     )
@@ -120,7 +115,7 @@ def cmd_help(message):
 def handle_any(message):
     bot.send_message(
         message.chat.id,
-        "👇 Открой приложение — там можно загрузить фото и решить задачу:",
+        "👇 Открой приложение:",
         reply_markup=main_kb(),
     )
 
@@ -135,23 +130,36 @@ def setup_menu_button():
         )
         print("✅ Кнопка меню установлена")
     except Exception as e:
-        print(f"⚠️  Кнопка меню: {e}")
+        print(f"⚠️ Кнопка меню: {e}")
 
 
 def run_bot():
-    print("🤖 Telegram бот запущен...")
+    """Запуск polling с защитой от 409 — ждёт и повторяет"""
+    print("🤖 Запуск Telegram бота...")
     setup_menu_button()
-    bot.infinity_polling(timeout=30, long_polling_timeout=30)
+
+    while True:
+        try:
+            print("⏳ Polling started...")
+            bot.polling(none_stop=True, interval=2, timeout=30)
+        except telebot.apihelper.ApiTelegramException as e:
+            if "409" in str(e):
+                print("⚠️ 409 Conflict — другой экземпляр бота. Жду 15 сек...")
+                time.sleep(15)
+            else:
+                print(f"❌ Telegram API ошибка: {e}")
+                time.sleep(5)
+        except Exception as e:
+            print(f"❌ Неизвестная ошибка: {e}")
+            time.sleep(5)
 
 
 # ── СТАРТ ──────────────────────────────────────────────────
 if __name__ == "__main__":
-    print(f"🚀 ТеорМех запускается на порту {PORT}")
+    print(f"🚀 ТеорМех стартует на порту {PORT}")
     print(f"📱 Mini App: {MINI_APP_URL}")
 
-    # Бот в отдельном потоке
     bot_thread = threading.Thread(target=run_bot, daemon=True)
     bot_thread.start()
 
-    # Flask сервер (Railway требует открытый порт)
     app.run(host="0.0.0.0", port=PORT)
