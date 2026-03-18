@@ -1,15 +1,14 @@
 """
-ТеорМех Бот — Telegram Mini App + API Proxy
-Railway 24/7 | с защитой от 409
+ТеорМех Бот — Telegram Mini App
+Gemini API вызывается прямо из браузера (нет CORS ограничений)
+Railway 24/7
 """
 
 import os
 import time
 import threading
-import requests
 import telebot
-from flask import Flask, request, jsonify
-from flask_cors import CORS
+from flask import Flask, jsonify
 from telebot.types import (
     InlineKeyboardMarkup,
     InlineKeyboardButton,
@@ -18,48 +17,21 @@ from telebot.types import (
 )
 
 # ── НАСТРОЙКИ ──────────────────────────────────────────────
-BOT_TOKEN     = os.environ.get("BOT_TOKEN", "")
-MINI_APP_URL  = os.environ.get("MINI_APP_URL", "")
-ANTHROPIC_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
-PORT          = int(os.environ.get("PORT", 8080))
+BOT_TOKEN    = os.environ.get("BOT_TOKEN", "")
+MINI_APP_URL = os.environ.get("MINI_APP_URL", "")
+PORT         = int(os.environ.get("PORT", 8080))
 
 if not BOT_TOKEN:
     raise ValueError("BOT_TOKEN не задан!")
 if not MINI_APP_URL:
     raise ValueError("MINI_APP_URL не задан!")
 
-# ── FLASK PROXY ────────────────────────────────────────────
+# ── FLASK (нужен Railway для keep-alive) ───────────────────
 app = Flask(__name__)
-CORS(app, origins="*")
-
-
-@app.route("/proxy/anthropic", methods=["POST", "OPTIONS"])
-def proxy_anthropic():
-    if request.method == "OPTIONS":
-        return jsonify({}), 200
-    api_key = ANTHROPIC_KEY or request.headers.get("X-Api-Key", "")
-    if not api_key:
-        return jsonify({"error": {"message": "ANTHROPIC_API_KEY не задан"}}), 400
-    try:
-        resp = requests.post(
-            "https://api.anthropic.com/v1/messages",
-            headers={
-                "Content-Type": "application/json",
-                "x-api-key": api_key,
-                "anthropic-version": "2023-06-01",
-            },
-            json=request.get_json(),
-            timeout=120,
-        )
-        return jsonify(resp.json()), resp.status_code
-    except Exception as e:
-        return jsonify({"error": {"message": str(e)}}), 500
-
 
 @app.route("/health")
 def health():
-    return jsonify({"status": "ok"})
-
+    return jsonify({"status": "ok", "bot": "ТеорМех"})
 
 # ── TELEGRAM BOT ───────────────────────────────────────────
 bot = telebot.TeleBot(BOT_TOKEN, threaded=False)
@@ -134,32 +106,27 @@ def setup_menu_button():
 
 
 def run_bot():
-    """Запуск polling с защитой от 409 — ждёт и повторяет"""
     print("🤖 Запуск Telegram бота...")
     setup_menu_button()
-
     while True:
         try:
             print("⏳ Polling started...")
             bot.polling(none_stop=True, interval=2, timeout=30)
         except telebot.apihelper.ApiTelegramException as e:
             if "409" in str(e):
-                print("⚠️ 409 Conflict — другой экземпляр бота. Жду 15 сек...")
+                print("⚠️ 409 Conflict — жду 15 сек...")
                 time.sleep(15)
             else:
-                print(f"❌ Telegram API ошибка: {e}")
+                print(f"❌ Telegram ошибка: {e}")
                 time.sleep(5)
         except Exception as e:
-            print(f"❌ Неизвестная ошибка: {e}")
+            print(f"❌ Ошибка: {e}")
             time.sleep(5)
 
 
 # ── СТАРТ ──────────────────────────────────────────────────
 if __name__ == "__main__":
     print(f"🚀 ТеорМех стартует на порту {PORT}")
-    print(f"📱 Mini App: {MINI_APP_URL}")
-
     bot_thread = threading.Thread(target=run_bot, daemon=True)
     bot_thread.start()
-
     app.run(host="0.0.0.0", port=PORT)
